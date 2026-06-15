@@ -1,0 +1,13 @@
+const assert = require("assert");
+const { dims, contain, cover, safeArea } = require("../src/index.js");
+assert.deepStrictEqual(dims("9:16"), { w: 1080, h: 1920 });
+assert.deepStrictEqual(dims("2:1"), { w: 2160, h: 1080 });
+assert.throws(() => dims("bad"));
+const c = contain(1920, 1080, "9:16");
+assert.strictEqual(c.fitted.w, 1080);
+assert.ok(c.pad.y > 0);
+const cv = cover(1920, 1080, "1:1");
+assert.ok(cv.fitted.w >= 1080 && cv.fitted.h >= 1080);
+const sa = safeArea("9:16", 0.1);
+assert.strictEqual(sa.w, 1080 - 216);
+console.log("aspect-fit: all tests passed");
