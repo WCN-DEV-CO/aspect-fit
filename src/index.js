@@ -1,34 +1,56 @@
-// aspect-fit — aspect-ratio + output-dimension resolver for multi-platform media. Zero deps.
-// Original code, released under MIT.
-const PRESETS = {
-  "9:16": { w: 1080, h: 1920 }, "16:9": { w: 1920, h: 1080 },
-  "1:1": { w: 1080, h: 1080 }, "4:5": { w: 1080, h: 1350 }, "4:3": { w: 1440, h: 1080 },
-};
-function dims(ratio) {
-  if (PRESETS[ratio]) return { ...PRESETS[ratio] };
-  const m = /^(\d+):(\d+)$/.exec(ratio);
-  if (!m) throw new Error(`invalid ratio: ${ratio}`);
-  const rw = +m[1], rh = +m[2];
-  const base = 1080;
-  return rw >= rh ? { w: Math.round((base * rw) / rh), h: base } : { w: base, h: Math.round((base * rh) / rw) };
+/** WCN AspectFit — Aspect-ratio + output-dimension resolver. */
+class AspectFit {
+  constructor(presets = {}) {
+    this.presets = {
+      square: { w: 1, h: 1 },
+      portrait: { w: 9, h: 16 },
+      landscape: { w: 16, h: 9 },
+      story: { w: 9, h: 16 },
+      twitter_card: { w: 2, h: 1 },
+      instagram_post: { w: 1, h: 1 },
+      instagram_story: { w: 9, h: 16 },
+      youtube_thumb: { w: 16, h: 9 },
+      a4_print: { w: 210, h: 297 },
+      ...presets
+    };
+  }
+
+  fit(sourceW, sourceH, targetW, targetH) {
+    const sourceRatio = sourceW / sourceH;
+    const targetRatio = targetW / targetH;
+    if (sourceRatio > targetRatio) {
+      const w = targetW;
+      const h = Math.round(targetW / sourceRatio);
+      return { width: w, height: h, x: 0, y: Math.round((targetH - h) / 2) };
+    } else {
+      const h = targetH;
+      const w = Math.round(targetH * sourceRatio);
+      return { width: w, height: h, x: Math.round((targetW - w) / 2), y: 0 };
+    }
+  }
+
+  fill(sourceW, sourceH, targetW, targetH) {
+    const sourceRatio = sourceW / sourceH;
+    const targetRatio = targetW / targetH;
+    if (sourceRatio > targetRatio) {
+      const h = targetH;
+      const w = Math.round(targetH * sourceRatio);
+      return { width: w, height: h, cropX: Math.round((w - targetW) / 2), cropY: 0, outW: targetW, outH: targetH };
+    } else {
+      const w = targetW;
+      const h = Math.round(targetW / sourceRatio);
+      return { width: w, height: h, cropX: 0, cropY: Math.round((h - targetH) / 2), outW: targetW, outH: targetH };
+    }
+  }
+
+  resolve(presetName, maxDim = 1920) {
+    const ratio = this.presets[presetName];
+    if (!ratio) throw new Error(`Unknown preset: ${presetName}`);
+    if (ratio.w >= ratio.h) return { width: maxDim, height: Math.round(maxDim * ratio.h / ratio.w) };
+    return { width: Math.round(maxDim * ratio.w / ratio.h), height: maxDim };
+  }
+
+  getAllPresets() { return Object.entries(this.presets).map(([name, r]) => ({ name, ratio: `${r.w}:${r.h}`, ...this.resolve(name, 1920) })); }
 }
-// Fit a source w/h into a target ratio without distortion (contain). Returns scaled box + letterbox pads.
-function contain(srcW, srcH, ratio) {
-  const t = dims(ratio);
-  const scale = Math.min(t.w / srcW, t.h / srcH);
-  const w = Math.round(srcW * scale), h = Math.round(srcH * scale);
-  return { target: t, fitted: { w, h }, pad: { x: Math.round((t.w - w) / 2), y: Math.round((t.h - h) / 2) } };
-}
-// Cover (crop to fill).
-function cover(srcW, srcH, ratio) {
-  const t = dims(ratio);
-  const scale = Math.max(t.w / srcW, t.h / srcH);
-  const w = Math.round(srcW * scale), h = Math.round(srcH * scale);
-  return { target: t, fitted: { w, h }, crop: { x: Math.round((w - t.w) / 2), y: Math.round((h - t.h) / 2) } };
-}
-function safeArea(ratio, marginPct = 0.1) {
-  const t = dims(ratio);
-  const mx = Math.round(t.w * marginPct), my = Math.round(t.h * marginPct);
-  return { x: mx, y: my, w: t.w - mx * 2, h: t.h - my * 2 };
-}
-module.exports = { dims, contain, cover, safeArea, PRESETS };
+
+module.exports = { AspectFit };
